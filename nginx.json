@@ -1,0 +1,259 @@
+{
+  "status": "ok",
+  "errors": [],
+  "config": [
+    {
+      "file": "/Users/mac/Documents/devMiko/poetry-demo/nginx.conf",
+      "status": "ok",
+      "errors": [],
+      "parsed": [
+        {
+          "directive": "user",
+          "line": 1,
+          "args": ["nginx"]
+        },
+        {
+          "directive": "worker_processes",
+          "line": 2,
+          "args": ["auto"]
+        },
+        {
+          "directive": "error_log",
+          "line": 3,
+          "args": ["/var/log/nginx/error.log"]
+        },
+        {
+          "directive": "pid",
+          "line": 4,
+          "args": ["/var/run/nginx.pid"]
+        },
+        {
+          "directive": "events",
+          "line": 6,
+          "args": [],
+          "block": [
+            {
+              "directive": "worker_connections",
+              "line": 7,
+              "args": ["1024"]
+            }
+          ]
+        },
+        {
+          "directive": "http",
+          "line": 10,
+          "args": [],
+          "block": [
+            {
+              "directive": "default_type",
+              "line": 12,
+              "args": ["application/octet-stream"]
+            },
+            {
+              "directive": "access_log",
+              "line": 14,
+              "args": ["/var/log/nginx/access.log"]
+            },
+            {
+              "directive": "log_format",
+              "line": 16,
+              "args": [
+                "main",
+                "$remote_addr - $remote_user [$time_local] \"$request\" ",
+                "$status $body_bytes_sent \"$http_referer\" ",
+                "\"$http_user_agent\" \"$http_x_forwarded_for\""
+              ]
+            },
+            {
+              "directive": "map",
+              "line": 22,
+              "args": ["$http_upgrade", "$connection_upgrade"],
+              "block": [
+                {
+                  "directive": "default",
+                  "line": 23,
+                  "args": ["upgrade"]
+                }
+              ]
+            },
+            {
+              "directive": "server",
+              "line": 26,
+              "args": [],
+              "block": [
+                {
+                  "directive": "listen",
+                  "line": 27,
+                  "args": ["80", "default_server"]
+                },
+                {
+                  "directive": "gzip",
+                  "line": 28,
+                  "args": ["on"]
+                },
+                {
+                  "directive": "gzip_comp_level",
+                  "line": 29,
+                  "args": ["4"]
+                },
+                {
+                  "directive": "gzip_types",
+                  "line": 30,
+                  "args": [
+                    "text/plain",
+                    "text/css",
+                    "application/json",
+                    "application/x-javascript",
+                    "text/xml",
+                    "application/xml",
+                    "application/xml+rss",
+                    "text/javascript",
+                    "application/x-protobuf"
+                  ]
+                },
+                {
+                  "directive": "location",
+                  "line": 32,
+                  "args": ["/"],
+                  "block": [
+                    {
+                      "directive": "root",
+                      "line": 33,
+                      "args": ["/var/www/html"]
+                    },
+                    {
+                      "directive": "try_files",
+                      "line": 34,
+                      "args": ["$uri", "/index.html"]
+                    }
+                  ]
+                },
+                {
+                  "directive": "location",
+                  "line": 37,
+                  "args": ["/panel/"],
+                  "block": [
+                    {
+                      "directive": "proxy_pass",
+                      "line": 38,
+                      "args": ["http://directus:8055/"]
+                    },
+                    {
+                      "directive": "proxy_http_version",
+                      "line": 39,
+                      "args": ["1.1"]
+                    },
+                    {
+                      "directive": "proxy_set_header",
+                      "line": 41,
+                      "args": ["Connection", "$connection_upgrade"]
+                    },
+                    {
+                      "directive": "proxy_set_header",
+                      "line": 42,
+                      "args": ["Upgrade", "$http_upgrade"]
+                    },
+                    {
+                      "directive": "proxy_set_header",
+                      "line": 43,
+                      "args": ["Host", "$host"]
+                    },
+                    {
+                      "directive": "proxy_set_header",
+                      "line": 44,
+                      "args": ["X-Real-IP", "$remote_addr"]
+                    },
+                    {
+                      "directive": "proxy_set_header",
+                      "line": 45,
+                      "args": ["X-Forwarded-For", "$proxy_add_x_forwarded_for"]
+                    },
+                    {
+                      "directive": "proxy_set_header",
+                      "line": 46,
+                      "args": ["X-Forwarded-Proto", "$scheme"]
+                    }
+                  ]
+                },
+                {
+                  "directive": "location",
+                  "line": 49,
+                  "args": ["=", "/panel/files"],
+                  "block": [
+                    {
+                      "directive": "client_max_body_size",
+                      "line": 50,
+                      "args": ["50m"]
+                    },
+                    {
+                      "directive": "proxy_pass",
+                      "line": 52,
+                      "args": ["http://directus:8055/files"]
+                    },
+                    {
+                      "directive": "proxy_http_version",
+                      "line": 53,
+                      "args": ["1.1"]
+                    },
+                    {
+                      "directive": "proxy_set_header",
+                      "line": 55,
+                      "args": ["Connection", "$connection_upgrade"]
+                    },
+                    {
+                      "directive": "proxy_set_header",
+                      "line": 56,
+                      "args": ["Upgrade", "$http_upgrade"]
+                    },
+                    {
+                      "directive": "proxy_set_header",
+                      "line": 57,
+                      "args": ["Host", "$host"]
+                    },
+                    {
+                      "directive": "proxy_set_header",
+                      "line": 58,
+                      "args": ["X-Real-IP", "$remote_addr"]
+                    },
+                    {
+                      "directive": "proxy_set_header",
+                      "line": 59,
+                      "args": ["X-Forwarded-For", "$proxy_add_x_forwarded_for"]
+                    },
+                    {
+                      "directive": "proxy_set_header",
+                      "line": 60,
+                      "args": ["X-Forwarded-Proto", "$scheme"]
+                    }
+                  ]
+                },
+                {
+                  "directive": "location",
+                  "line": 63,
+                  "args": ["=", "/health"],
+                  "block": [
+                    {
+                      "directive": "access_log",
+                      "line": 64,
+                      "args": ["off"]
+                    },
+                    {
+                      "directive": "add_header",
+                      "line": 65,
+                      "args": ["Content-Type", "text/plain"]
+                    },
+                    {
+                      "directive": "return",
+                      "line": 66,
+                      "args": ["200", "OK"]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
