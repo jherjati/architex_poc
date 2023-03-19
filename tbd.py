@@ -12,7 +12,7 @@ graph_attr = {
 }
 
 
-def service2container(name, service):
+def service_to_container(name, service):
     return Container(
         name=service.get(
             "container_name") if "container_name" in service else name,
@@ -22,7 +22,7 @@ def service2container(name, service):
     )
 
 
-def volume2database(volume, access_mode):
+def volume_to_database(volume, access_mode):
     return Database(
         name=volume,
         technology="file system",
@@ -30,12 +30,10 @@ def volume2database(volume, access_mode):
     )
 
 
-with open("compose.yaml") as f:
-    docker_compose = yaml.load(f, Loader=SafeLoader)
-    nginx_conf = crossplane.parse(
-        f'{os.getcwd()}/nginx.conf')
-    http_blocks = list(filter(
-        lambda block: block["directive"] == "http", nginx_conf.get("config")[0].get("parsed")))
+def get_location_blocks(nginx_conf):
+    http_blocks = [block for block in nginx_conf.get(
+        "config")[0].get("parsed") if block["directive"] == "http"]
+
     server_blocks, location_blocks = [], []
     for http_block in http_blocks:
         blocks = list(filter(
@@ -45,6 +43,14 @@ with open("compose.yaml") as f:
         blocks = list(filter(
             lambda block: block["directive"] == "location", server_block['block']))
         location_blocks.extend(blocks)
+
+    return location_blocks
+
+
+with open("compose.yaml") as f:
+    docker_compose = yaml.load(f, Loader=SafeLoader)
+    location_blocks = get_location_blocks(crossplane.parse(
+        f'{os.getcwd()}/nginx.conf'))
     nginx_service_name = ""
 
     with Diagram("Software",  graph_attr=graph_attr, show=False):
@@ -56,7 +62,7 @@ with open("compose.yaml") as f:
                 for volume_string in service["volumes"]:
                     volume, container_path, access_mode = volume_string.split(
                         ":")
-                    databases[volume] = volume2database(volume, access_mode)
+                    databases[volume] = volume_to_database(volume, access_mode)
             if "nginx" in name or (service.get("image") is not None and "nginx" in service.get("image")):
                 nginx_service_name = name
 
@@ -68,9 +74,10 @@ with open("compose.yaml") as f:
         with SystemBoundary("Default Compose Network"):
             # Container initiation
             for name, service in docker_compose["services"].items():
-                containers[name] = service2container(name, service)
+                containers[name] = service_to_container(name, service)
 
-        # Relation identification
+        # RELATION IDENTIFICATION
+        # Compose based relationship
         for name, service in docker_compose["services"].items():
             if "depends_on" in service:
                 containers[name] >> Relationship("depends on") >> list(map(
@@ -87,6 +94,8 @@ with open("compose.yaml") as f:
                         ":")
                     user >> Relationship(
                         f'access port {host}, forwarded to {container}') >> containers[name]
+
+        # Nginx based relationship
         for location_block in location_blocks:
             root_blocks = [block.get("args")[0] for block in location_block['block']
                            if block["directive"] == "root"]
