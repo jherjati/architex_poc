@@ -1,6 +1,7 @@
 import yaml
 import os
 import crossplane
+import urllib.parse
 from yaml.loader import SafeLoader
 from diagrams import Diagram
 from diagrams.c4 import Person, Container, Database, SystemBoundary, Relationship
@@ -33,18 +34,36 @@ with open("compose.yaml") as f:
     docker_compose = yaml.load(f, Loader=SafeLoader)
     nginx_conf = crossplane.parse(
         f'{os.getcwd()}/nginx.conf')
-    print(nginx_conf.get("config")[0].get("parsed"))
+    http_blocks = list(filter(
+        lambda block: block["directive"] == "http", nginx_conf.get("config")[0].get("parsed")))
+    server_blocks, location_blocks = [], []
+    for http_block in http_blocks:
+        blocks = list(filter(
+            lambda block: block["directive"] == "server", http_block['block']))
+        server_blocks.extend(blocks)
+    for server_block in server_blocks:
+        blocks = list(filter(
+            lambda block: block["directive"] == "location", server_block['block']))
+        location_blocks.extend(blocks)
+    nginx_service_name = ""
 
     with Diagram("Software",  graph_attr=graph_attr, show=False):
         containers, databases, networks = {}, {}, {}
 
-        # Database initiation
+        # Database initiation and nginx service detection
         for name, service in docker_compose["services"].items():
             if "volumes" in service:
                 for volume_string in service["volumes"]:
                     volume, container_path, access_mode = volume_string.split(
                         ":")
                     databases[volume] = volume2database(volume, access_mode)
+            if "nginx" in name or (service.get("image") is not None and "nginx" in service.get("image")):
+                nginx_service_name = name
+
+        if nginx_service_name != "":
+            user = Person(
+                name="User", description="General User"
+            )
 
         with SystemBoundary("Default Compose Network"):
             # Container initiation
@@ -62,3 +81,34 @@ with open("compose.yaml") as f:
                         ":")
                     containers[name] >> Relationship(
                         f'bind mount {container_path}') >> databases[volume]
+            if "ports" in service:
+                for port_string in service["ports"]:
+                    host, container = port_string.split(
+                        ":")
+                    user >> Relationship(
+                        f'access port {host}, forwarded to {container}') >> containers[name]
+        for location_block in location_blocks:
+            root_blocks = [block.get("args")[0] for block in location_block['block']
+                           if block["directive"] == "root"]
+            proxy_blocks = [block.get("args")[0] for block in location_block['block']
+                            if block["directive"] == "proxy_pass"]
+            fastcgi_blocks = [block.get("args")[0] for block in location_block['block']
+                              if block["directive"] == "fastcgi_pass"]
+            if root_blocks:
+                web = Container(
+                    name="web",
+                    technology="static web",
+                    description=f'{root_blocks[0]} nginx service directory',
+                )
+                containers[nginx_service_name] >> Relationship(
+                    f'{location_block.get("args")[0]} simple redirection') >> web
+            elif proxy_blocks:
+                destination_service = urllib.parse.urlparse(
+                    proxy_blocks[0]).netloc.split(":")[0]
+                containers[nginx_service_name] >> Relationship(
+                    f'{location_block.get("args")[0]} proxy pass') >> containers[destination_service]
+            elif fastcgi_blocks:
+                destination_service = urllib.parse.urlparse(
+                    fastcgi_blocks[0]).netloc.split(":")[0]
+                containers[nginx_service_name] >> Relationship(
+                    f'{location_block.get("args")[0]} fastcgi pass') >> containers[destination_service]
