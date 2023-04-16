@@ -1,10 +1,10 @@
 [tool.poetry]
-name = "poetry-demo"
+name = "Architex"
 version = "0.1.0"
 description = ""
 authors = ["Miko <jherjati@gmail.com>"]
 readme = "README.md"
-packages = [{include = "poetry_demo"}]
+packages = [{include = "Architex"}]
 
 [tool.poetry.dependencies]
 python = "^3.11"

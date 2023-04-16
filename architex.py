@@ -11,6 +11,8 @@ graph_attr = {
     "splines": "spline",
 }
 
+repo_path = "repos/geodashboard"
+
 
 def service_to_container(name, service):
     return Container(
@@ -47,13 +49,13 @@ def get_location_blocks(nginx_conf):
     return location_blocks
 
 
-with open("compose.yaml") as f:
+with open(repo_path+"/compose.yaml") as f:
     docker_compose = yaml.load(f, Loader=SafeLoader)
     location_blocks = get_location_blocks(crossplane.parse(
-        f'{os.getcwd()}/nginx.conf'))
+        f'{os.getcwd()+repo_path}/nginx.conf'))
     nginx_service_name = ""
 
-    with Diagram("Software",  graph_attr=graph_attr, show=False):
+    with Diagram("Architectural Diagram",  graph_attr=graph_attr, show=False):
         containers, databases, networks = {}, {}, {}
 
         # Database initiation and nginx service detection
@@ -71,7 +73,8 @@ with open("compose.yaml") as f:
                 name="User", description="General User"
             )
 
-        with SystemBoundary("Default Compose Network"):
+        composeNetwork = SystemBoundary("Default Compose Network")
+        with composeNetwork:
             # Container initiation
             for name, service in docker_compose["services"].items():
                 containers[name] = service_to_container(name, service)

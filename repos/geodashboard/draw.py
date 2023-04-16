@@ -5,7 +5,7 @@ graph_attr = {
     "splines": "spline",
 }
 
-with Diagram("Geodashboard Application",  graph_attr=graph_attr, ):
+with Diagram("Geodashboard Architecture",  graph_attr=graph_attr, ):
     user = Person(
         name="User", description="General User"
     )
