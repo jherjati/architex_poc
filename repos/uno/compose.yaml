@@ -1,0 +1,95 @@
+version: "3"
+
+services:
+  fastify:
+    container_name: fastify
+    build:
+      context: .
+      dockerfile: fast.Dockerfile
+    environment:
+      - PORT
+      - DATABASE_URL
+      - DIRECTUS_SECRET=${SECRET}
+    restart: unless-stopped
+
+  redis:
+    container_name: redis
+    image: redis:6-alpine
+    volumes:
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command:
+      - redis-server
+      - /usr/local/etc/redis/redis.conf
+    restart: unless-stopped
+
+  directus:
+    container_name: directus
+    image: directus/directus:9.23
+    # ports:
+    #   - "8055:8055"
+    depends_on:
+      - redis
+    environment:
+      - PUBLIC_URL
+      - KEY
+      - SECRET
+      - DB_CLIENT
+      - DB_HOST
+      - DB_PORT
+      - DB_DATABASE
+      - DB_USER
+      - DB_PASSWORD
+      - ADMIN_EMAIL
+      - ADMIN_PASSWORD
+      - STORAGE_LOCATIONS
+      - STORAGE_AWS_DRIVER
+      - STORAGE_AWS_ROOT
+      - STORAGE_AWS_KEY
+      - STORAGE_AWS_SECRET
+      - STORAGE_AWS_BUCKET
+      - STORAGE_AWS_REGION
+      - LOG_LEVEL
+      - LOG_STYLE
+      - CACHE_ENABLED
+      - CACHE_AUTO_PURGE
+      - CACHE_STORE
+      - CACHE_REDIS
+      - REFRESH_TOKEN_TTL
+      # - REFRESH_TOKEN_COOKIE_DOMAIN
+      - REFRESH_TOKEN_COOKIE_SECURE
+      - REFRESH_TOKEN_COOKIE_SAME_SITE
+      - REFRESH_TOKEN_COOKIE_NAME
+      - SESSION_STORE
+      - SESSION_REDIS
+      - RATE_LIMITER_ENABLED
+      - RATE_LIMITER_STORE
+      - RATE_LIMITER_REDIS
+      - CORS_ORIGIN
+
+  hasura:
+    image: hasura/graphql-engine:v2.22.0
+    environment:
+      - HASURA_GRAPHQL_DATABASE_URL
+      - HASURA_GRAPHQL_ENABLE_CONSOLE
+      - HASURA_GRAPHQL_JWT_SECRET
+      - HASURA_GRAPHQL_ADMIN_SECRET
+      - HASURA_GRAPHQL_UNAUTHORIZED_ROLE
+      - HASURA_GRAPHQL_V1_BOOLEAN_NULL_COLLAPSE
+    restart: unless-stopped
+    
+  nginx:
+    container_name: nginx
+    build:
+      context: .
+      dockerfile: nginx.Dockerfile
+      args:
+        - NGINX_CONF=./nginx.conf
+    ports:
+      - "80:80"
+    depends_on:
+      - "fastify"
+      - "directus"
+      - "hasura"
+    networks:
+      - default
+    restart: unless-stopped

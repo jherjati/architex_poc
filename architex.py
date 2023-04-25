@@ -1,5 +1,6 @@
 import yaml
 import os
+import sys
 import crossplane
 import urllib.parse
 from yaml.loader import SafeLoader
@@ -11,7 +12,8 @@ graph_attr = {
     "splines": "spline",
 }
 
-repo_path = "repos/geodashboard"
+
+repo_path = f'repos/{sys.argv[1]}'
 
 
 def service_to_container(name, service):
@@ -52,10 +54,10 @@ def get_location_blocks(nginx_conf):
 with open(repo_path+"/compose.yaml") as f:
     docker_compose = yaml.load(f, Loader=SafeLoader)
     location_blocks = get_location_blocks(crossplane.parse(
-        f'{os.getcwd()+repo_path}/nginx.conf'))
+        f'{os.getcwd()}/{repo_path}/nginx.conf'))
     nginx_service_name = ""
 
-    with Diagram("Architectural Diagram",  graph_attr=graph_attr, show=False):
+    with Diagram(f'{sys.argv[1]} Architectural Diagram', filename=f'{sys.argv[1]}_architecture',  graph_attr=graph_attr, show=False):
         containers, databases, networks = {}, {}, {}
 
         # Database initiation and nginx service detection
