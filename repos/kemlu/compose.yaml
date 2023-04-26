@@ -1,0 +1,118 @@
+version: "3.8"
+
+services:
+  fastify:
+    container_name: jdih_fastify
+    build: api
+    environment:
+      - DATABASE_URL
+      - BASE_URL
+      - WEB_ID
+    restart: unless-stopped
+    networks:
+      - default
+      - jdih-storage
+  
+  client:
+    container_name: jdih_client
+    build: ./client
+    # ports:
+    #   - 3000:3000
+    environment:
+      - BASE_URL
+      - BASE_URL_STAT
+      - DATA_WEBSITE_ID
+    depends_on:
+      - "directus"
+      - "fastify"
+    restart: unless-stopped
+
+  cache:
+    container_name: kemenlu_cache
+    image: redis:6
+    networks:
+    - default
+    - jdih-storage
+    restart: unless-stopped
+
+  directus:
+    container_name: kemenlu_directus
+    image: directus/directus:9.6
+    depends_on:
+      - cache
+    # ports:
+    #   - 8055:8055
+    environment:
+      - PUBLIC_URL
+      - KEY
+      - SECRET
+      - DB_CLIENT
+      - DB_HOST
+      - DB_PORT
+      - DB_DATABASE
+      - DB_USER
+      - DB_PASSWORD
+      - ADMIN_EMAIL
+      - ADMIN_PASSWORD
+      - STORAGE_LOCATIONS
+      - STORAGE_S3_DRIVER
+      - STORAGE_S3_KEY
+      - STORAGE_S3_SECRET
+      - STORAGE_S3_BUCKET
+      - STORAGE_S3_ENDPOINT
+      - STORAGE_S3_S3_FORCE_PATH_STYLE
+      - LOG_LEVEL
+      - LOG_STYLE
+      - CACHE_ENABLED
+      - CACHE_AUTO_PURGE
+      - CACHE_STORE
+      - CACHE_REDIS
+      - CACHE_NAMESPACE
+      - REFRESH_TOKEN_TTL
+      # - REFRESH_TOKEN_COOKIE_DOMAIN
+      - REFRESH_TOKEN_COOKIE_SECURE
+      - REFRESH_TOKEN_COOKIE_SAME_SITE
+      - REFRESH_TOKEN_COOKIE_NAME
+      - SESSION_STORE
+      - SESSION_REDIS
+      - RATE_LIMITER_ENABLED
+      - RATE_LIMITER_STORE
+      - RATE_LIMITER_REDIS
+    networks:
+      - default
+      - jdih-storage
+    restart: unless-stopped
+  
+  umami:
+    container_name: jdih_umami
+    # image: ghcr.io/mikecao/umami:postgresql-latest
+    image: docker.umami.dev/umami-software/umami:mysql-latest
+    environment:
+      DATABASE_URL: $DATABASE_URL
+      DATABASE_TYPE: mysql
+      HASH_SALT: YOtocF4PCobPoo5wBmSlqwerty
+    networks:
+      - jdih-storage
+    restart: unless-stopped
+
+  nginx:
+    container_name: kemenlu_nginx
+    image: nginx:1.19-alpine
+    ports:
+      - "80:80"
+    depends_on:
+      - "directus"
+      - "fastify"
+      - "umami"
+      - "client"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    networks:
+      - default
+      - jdih-storage
+    restart: unless-stopped
+
+networks:
+  jdih-storage:
+    name: jdih-storage
+    external : true
