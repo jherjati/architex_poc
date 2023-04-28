@@ -8,14 +8,6 @@ from diagrams import Diagram
 from diagrams.c4 import Person, Container, Database, SystemBoundary, Relationship
 
 
-graph_attr = {
-    "splines": "spline",
-}
-
-
-repo_path = f'repos/{sys.argv[1]}'
-
-
 def get_compose_files(dir_path):
     res = []
     for path in os.listdir(dir_path):
@@ -25,13 +17,27 @@ def get_compose_files(dir_path):
 
 
 def service_to_container(name, service):
-    return Container(
-        name=service.get(
-            "container_name") if "container_name" in service else name,
-        technology=service.get(
-            "image") if "image" in service else f'Built on {service["build"] if isinstance(service["build"], str) else service["build"]["context"]} folder',
-        description=service.get("restart"),
-    )
+    withNetworks = ', '.join([x for x in service.get(
+        'networks') if x != 'default']) if service.get(
+        'networks') != None else None
+
+    if withNetworks:
+        with SystemBoundary(f'{withNetworks} custom network'):
+            return Container(
+                name=service.get(
+                    "container_name") if "container_name" in service else name,
+                technology=service.get(
+                    "image") if "image" in service else f'Built on {service["build"] if isinstance(service["build"], str) else service["build"]["context"]} folder',
+                description=service.get("restart"),
+            )
+    else:
+        return Container(
+            name=service.get(
+                "container_name") if "container_name" in service else name,
+            technology=service.get(
+                "image") if "image" in service else f'Built on {service["build"] if isinstance(service["build"], str) else service["build"]["context"]} folder',
+            description=service.get("restart"),
+        )
 
 
 def volume_to_database(volume, access_mode):
@@ -139,6 +145,10 @@ def compose_drawing(docker_compose, databases, containers, compose_file):
     get_compose_relationships(docker_compose, containers, databases)
 
 
+graph_attr = {
+    "splines": "spline",
+}
+repo_path = f'repos/{sys.argv[1]}'
 nginx_service_name = ""
 user = None
 
@@ -158,7 +168,7 @@ def start_drawing(filenames):
         f'{os.getcwd()}/{repo_path}/nginx.conf'))
 
     with Diagram(f'{sys.argv[1]} Architectural Diagram', filename=f'{sys.argv[1]}_architecture',  graph_attr=graph_attr, show=False):
-        containers, databases, networks = {}, {}, {}
+        containers, databases = {}, {}
 
         for docker_compose in docker_composes:
             nginx_detection(docker_compose)
