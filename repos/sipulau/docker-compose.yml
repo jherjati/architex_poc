@@ -1,0 +1,142 @@
+version: "3"
+services:
+  redis:
+    build:
+      context: redis
+    restart: unless-stopped
+
+  directus:
+    build:
+      context: directus
+    # ports:
+    #   - "8055:8055"
+    depends_on:
+      - redis
+      - worker
+    environment:
+      - KEY=${DIRECTUS_KEY}
+      - SECRET=${DIRECTUS_SECRET}
+      - TELEMETRY=false
+      - DB_CLIENT=pg
+      - DB_HOST=${POSTGRES_HOST}
+      - DB_PORT=${POSTGRES_PORT}
+      - DB_DATABASE=big_sipulau
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - CACHE_ENABLED=true
+      - CACHE_STORE=redis
+      - CACHE_REDIS=redis://redis:6379
+      - STORAGE_LOCATIONS=minio,minioshp
+      - STORAGE_MINIO_DRIVER=s3
+      - STORAGE_MINIO_KEY=${MINIO_ROOT_USER}
+      - STORAGE_MINIO_SECRET=${MINIO_ROOT_PASSWORD}
+      - STORAGE_MINIO_BUCKET=sipulau
+      - STORAGE_MINIO_ENDPOINT=http://${MINIO_ENDPOINT}
+      - STORAGE_MINIO_S3_FORCE_PATH_STYLE=true
+      - STORAGE_MINIOSHP_DRIVER=s3
+      - STORAGE_MINIOSHP_KEY=${MINIO_ROOT_USER}
+      - STORAGE_MINIOSHP_SECRET=${MINIO_ROOT_PASSWORD}
+      - STORAGE_MINIOSHP_BUCKET=sipulau-shp
+      - STORAGE_MINIOSHP_ENDPOINT=http://${MINIO_ENDPOINT}
+      - STORAGE_MINIOSHP_S3_FORCE_PATH_STYLE=true
+      - PUBLIC_URL=${DIRECTUS_URL}
+      - EMAIL_FROM
+      - EMAIL_TRANSPORT=smtp
+      - EMAIL_SMTP_HOST
+      - EMAIL_SMTP_PORT
+      - EMAIL_SMTP_USER
+      - EMAIL_SMTP_PASSWORD
+      - EMAIL_SMTP_POOL=true
+      - EMAIL_SMTP_SECURE
+      - EMAIL_SMTP_IGNORE_TLS
+      - REFRESH_TOKEN_COOKIE_SECURE=true
+      - REFRESH_TOKEN_COOKIE_NAME=sipulau_refresh_token
+      - REFRESH_TOKEN_TTL=1d
+      - HCAPTCHA_SECRET_KEY
+      - CONTENT_SECURITY_POLICY_DIRECTIVES__SCRIPT_SRC='self','unsafe-eval',hcaptcha.com,*.hcaptcha.com
+      - CONTENT_SECURITY_POLICY_DIRECTIVES__CHILD_SRC='self',blob:,hcaptcha.com,*.hcaptcha.com
+    restart: unless-stopped
+    # networks:
+    #   - default
+    #   - sipulaudev
+
+  nextjs:
+    build:
+      context: next
+      args:
+        - NEXT_PUBLIC_UMAMI_URL=${UMAMI_URL}
+        - NEXT_PUBLIC_DIRECTUS_URL=${DIRECTUS_URL}
+    depends_on:
+      - directus
+      - worker
+    environment:
+      - NEXT_PUBLIC_DIRECTUS_URL=${DIRECTUS_URL}
+      - PGHOST=${POSTGRES_HOST}
+      - PGUSER=${POSTGRES_USER}
+      - PGPASSWORD=${POSTGRES_PASSWORD}
+      - PGPORT=${POSTGRES_PORT}
+      - HCAPTCHA_SECRET_KEY
+      - REDIS_URL=redis://redis:6379
+    restart: unless-stopped
+    # networks:
+    #   - default
+    #   - sipulaudev
+
+  umami:
+    build:
+      args:
+        - POSTGRES_HOST
+        - POSTGRES_PORT
+        - POSTGRES_USER
+        - POSTGRES_PASSWORD
+        - POSTGRES_DB=big_sipulau_umami
+        - BASE_PATH=/stats
+        - HASH_SALT=${UMAMI_HASH_SALT}
+        - DATABASE_TYPE=postgresql
+      context: umami
+    # ports:
+    #   - "3000:3000"
+    restart: unless-stopped
+    # networks:
+    #   - default
+    #   - sipulaudev
+
+  worker:
+    build:
+      context: worker
+    environment:
+      - STORAGE_ACCESS_KEY_ID=${MINIO_ROOT_USER}
+      - STORAGE_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD}
+      - STORAGE_ENDPOINT=${MINIO_ENDPOINT}
+      - STORAGE_BUCKET=sipulau-shp
+      - POSTGRES_HOST
+      - POSTGRES_PORT
+      - POSTGRES_DB=big_sipulau
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    restart: unless-stopped
+    # networks:
+    #   - default
+    #   - sipulaudev
+
+  nginx:
+    build:
+      context: nginx
+    ports:
+      - "80:80"
+      # - "443:443"
+    depends_on:
+      - nextjs
+      - directus
+      - umami
+    environment:
+      - DIRECTUS_URL
+      - SIPULAU_URL
+      - UMAMI_URL
+    restart: unless-stopped
+
+# networks:
+#   sipulaudev:
+#     name: sipulaudev

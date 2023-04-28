@@ -1,0 +1,43 @@
+version: "3"
+services:
+  postgis:
+    build:
+      context: postgis
+    volumes:
+      - ./postgis/data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB
+    networks:
+      - geodashboard_data
+    restart: unless-stopped
+
+  minio:
+    build:
+      context: minio
+    volumes:
+      - ./minio/data:/data
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${S3_ACCESS_KEY}
+      - MINIO_ROOT_PASSWORD=${S3_SECRET_KEY}
+    networks:
+      - geodashboard_data
+      - default
+    restart: unless-stopped
+
+  minioclient:
+    build:
+      context: minioclient
+    depends_on:
+      - minio
+    environment:
+      - S3_ACCESS_KEY
+      - S3_SECRET_KEY
+      - S3_BUCKET_NAME
+    restart: on-failure
+
+networks:
+  geodashboard_data:
+    name: geodashboard_data

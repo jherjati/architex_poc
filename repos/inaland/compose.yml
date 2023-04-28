@@ -1,0 +1,44 @@
+version: "3.5"
+services:
+  postgis:
+    build:
+      context: postgis
+    volumes:
+      - ./postgis/data:/var/lib/postgresql/data
+      - ./postgis/backup:/var/backups/postgresql
+    environment:
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB
+    networks:
+      - landsystem_data
+    restart: unless-stopped
+
+  minio:
+    build:
+      context: minio
+    volumes:
+      - ./minio/data:/data
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${S3_ACCESS_KEY}
+      - MINIO_ROOT_PASSWORD=${S3_SECRET_KEY}
+    networks:
+      - landsystem_data
+      - default
+    restart: unless-stopped
+
+  minioclient:
+    build:
+      context: minioclient
+    depends_on:
+      - minio
+    environment:
+      - S3_ACCESS_KEY
+      - S3_SECRET_KEY
+      - S3_BUCKET_NAME
+    restart: on-failure
+
+networks:
+  landsystem_data:
+    name: landsystem_data
