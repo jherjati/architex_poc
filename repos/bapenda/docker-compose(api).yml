@@ -1,0 +1,17 @@
+version: "3.7"
+
+networks:
+  default:
+    external:
+      name:
+        bapenda
+
+services:
+  api:
+    container_name:  bapenda_service_api
+    build: .
+    env_file: .env.container
+    ports:
+      - 8000:8000
+    volumes:
+      - ./public:/home/restify/bapenda/public

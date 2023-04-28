@@ -1,0 +1,28 @@
+version: '3'
+
+networks:
+  default:
+    external:
+      name:
+        bapenda
+
+services:
+  nextjs:
+    container_name: bapenda_fe
+    build: ./client
+    env_file: ./client/.env.container
+    ports:
+      - 3000:3000
+
+  nginx:
+    image: nginx:1-alpine
+    # build:
+    #   context: .
+    #   dockerfile: nginx.Dockerfile
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "./nginx/nginx-prod.conf:/etc/nginx/nginx.conf"
+      - "./ssl:/etc/cert"
+    restart: unless-stopped

@@ -1,0 +1,22 @@
+version: '3.3'
+
+networks:
+  default:
+    external:
+      name:
+        bapenda
+
+services:
+  postgis:
+    image: postgis/postgis:14-3.3-alpine
+    container_name: bapenda_postgis
+    ports:
+      - "5432:5432"
+    volumes:
+      - "./data:/var/lib/postgresql/data"
+    environment:
+      POSTGRES_DB: 'bapenda_db'
+      POSTGRES_USER: 'bapenda-user'
+      POSTGRES_PASSWORD: '6c2cd85c-f822-4afe-8005-02b5c73e4b52'
+      POSTGRES_ROOT_PASSWORD: '820f2543-ad17-4fbe-b1b7-9f4c04b6731c'
+    restart: unless-stopped
