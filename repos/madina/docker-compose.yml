@@ -1,0 +1,97 @@
+version: "3.8"
+
+services:
+  postgis:
+    build:
+      context: postgis
+    # ports:
+    #   - "5432:5432"
+    volumes:
+      - "./postgis/data:/var/lib/postgresql/data"
+      - "./postgis/migrationdump:/migrationdump:ro"
+    environment:
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB
+    restart: always
+    networks:
+      - madina-wasteman
+
+  hasura:
+    # build:
+    #   context: hasura
+    image: hasura/graphql-engine:v1.3.3
+    environment:
+      - HASURA_GRAPHQL_DATABASE_URL
+      - HASURA_GRAPHQL_ENABLE_CONSOLE
+      - HASURA_GRAPHQL_JWT_SECRET
+      - HASURA_GRAPHQL_ADMIN_SECRET
+      - HASURA_GRAPHQL_UNAUTHORIZED_ROLE
+      - BACKEND_API_TOKEN
+    depends_on:
+      - postgis
+    command: >
+      /bin/sh -c "
+      sleep 60;
+      graphql-engine serve;
+      "
+    networks:
+      - madina-wasteman
+    restart: always
+
+  fastapi:
+    build:
+      context: service
+      dockerfile: .Dockerfile
+    environment:
+      - FASTAPI_PGSTRING
+      - FASTAPI_PRIVATE_KEY
+      - FASTAPI_PUBLIC_KEY
+      - FASTAPI_ALGORITHM
+    depends_on:
+      - hasura
+    expose:
+      - 80
+    command: >
+      /bin/sh -c "
+      sleep 60;
+      uvicorn app.main:app --host 0.0.0.0 --port 80;
+      "
+    networks:
+      - madina-wasteman
+    restart: always
+
+  certbot:
+    image: certbot/certbot
+    restart: unless-stopped
+    networks:
+      - madina-wasteman
+    volumes:
+      - ./data/certbot/conf:/etc/letsencrypt
+      - ./data/certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx.Dockerfile
+      args:
+        - "NGINX_CONF=./nginx.conf"
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - "postgis"
+      - "fastapi"
+      - "hasura"
+    networks:
+      - madina-wasteman
+    restart: always
+    volumes:
+      - ./data/certbot/conf:/etc/letsencrypt
+      - ./data/certbot/www:/var/www/certbot
+    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
+
+networks:
+  madina-wasteman:
+    name: madina-wasteman

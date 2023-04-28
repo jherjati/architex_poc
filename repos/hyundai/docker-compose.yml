@@ -1,0 +1,104 @@
+version: "3"
+
+services:
+  fastify:
+    build:
+      context: .
+      dockerfile: fast.Dockerfile
+    environment:
+      - PORT
+      - DATABASE_URL
+      - JWT_PRIVATE_KEY
+      - JWT_PUBLIC_KEY
+      - MIDTRANS_SERVER_KEY
+      - EMAIL_ACCESS_KEY=${S3_ACCESS_KEY}
+      - EMAIL_SECRET_KEY=${S3_SECRET_KEY}
+      - EMAIL_REGION=ap-southeast-1
+      - PURWANTARA_SECRET
+      - PURWANTARA_API_KEY
+      - HYUNDAI_SECRET_JWT
+    restart: unless-stopped
+
+  hasura:
+    image: hasura/graphql-engine:v2.13.2
+    environment:
+      - HASURA_GRAPHQL_DATABASE_URL
+      - HASURA_GRAPHQL_ENABLE_CONSOLE
+      - HASURA_GRAPHQL_JWT_SECRET
+      - HASURA_GRAPHQL_ADMIN_SECRET
+      - HASURA_GRAPHQL_UNAUTHORIZED_ROLE
+      - HASURA_GRAPHQL_V1_BOOLEAN_NULL_COLLAPSE
+    restart: unless-stopped
+
+  redis:
+    image: redis:6-alpine
+    volumes:
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command:
+      - redis-server
+      - /usr/local/etc/redis/redis.conf
+    restart: unless-stopped
+
+  directus:
+    build:
+      context: directus
+    ports:
+      - 8055:8055
+    depends_on:
+      - redis
+    environment:
+      # general
+      - PUBLIC_URL=${DIRECTUS_URL}
+      # database
+      - DB_CLIENT=pg
+      - DB_HOST=${POSTGRES_HOST}
+      - DB_PORT=5432
+      - DB_DATABASE=hyundai_qms
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      # security
+      - ADMIN_EMAIL
+      - ADMIN_PASSWORD
+      - KEY=${DIRECTUS_KEY}
+      - SECRET=${DIRECTUS_SECRET}
+      - REFRESH_TOKEN_TTL=1d
+      - REFRESH_TOKEN_COOKIE_SECURE=true
+      - REFRESH_TOKEN_COOKIE_SAME_SITE=strict
+      - REFRESH_TOKEN_COOKIE_NAME=hyundai_refresh_token
+      # cors
+      - CORS_ENABLED=false
+      # rate limiting
+      - RATE_LIMITER_ENABLED=true
+      - RATE_LIMITER_STORE=redis
+      - RATE_LIMITER_REDIS=redis://redis:6379
+      # cache
+      - CACHE_ENABLED=true
+      - CACHE_STORE=redis
+      - CACHE_REDIS=redis://redis:6379
+      # file storage
+      - STORAGE_LOCATIONS=s3
+      - STORAGE_S3_DRIVER=s3
+      - STORAGE_S3_KEY=${S3_ACCESS_KEY}
+      - STORAGE_S3_SECRET=${S3_SECRET_KEY}
+      - STORAGE_S3_BUCKET=${S3_BUCKET_NAME}
+      - STORAGE_S3_ENDPOINT=${S3_ENDPOINT}
+      # telemetry
+      - TELEMETRY=false
+      - LOG_LEVEL=info
+    restart: unless-stopped
+
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx.Dockerfile
+      args:
+        - NGINX_CONF=./nginx.conf
+    ports:
+      - "80:80"
+    depends_on:
+      - "hasura"
+      - "fastify"
+      - "directus"
+    networks:
+      - default
+    restart: unless-stopped

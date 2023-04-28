@@ -1,0 +1,60 @@
+version: "3.8"
+
+services:
+  hasura-tcc:
+    image: hasura/graphql-engine:v1.3.3
+    environment:
+      - HASURA_GRAPHQL_DATABASE_URL
+      - HASURA_GRAPHQL_ENABLE_CONSOLE
+      - HASURA_GRAPHQL_JWT_SECRET
+      - HASURA_GRAPHQL_ADMIN_SECRET
+      - HASURA_GRAPHQL_UNAUTHORIZED_ROLE
+    networks:
+      - default
+      - tcc-storage
+    restart: unless-stopped
+
+  fastapi-tcc:
+    build:
+      context: service
+      dockerfile: .Dockerfile
+    environment:
+      - FASTAPI_PGSTRING
+      - FASTAPI_PRIVATE_KEY
+      - FASTAPI_PUBLIC_KEY
+      - FASTAPI_ALGORITHM
+      - STORAGE_ENDPOINT=tcc.jabarprov.go.id
+      - STORAGE_ACCESS_KEY_ID
+      - STORAGE_SECRET_ACCESS_KEY
+      - BUCKET_NAME=tcc-storage
+      - MAX_WORKERS=4
+    depends_on:
+      - "hasura-tcc"
+    networks:
+      - default
+      - tcc-storage
+    volumes:
+      - "./storage/media:/app/app/media"
+    restart: unless-stopped
+    
+
+  nginx-tcc:
+    build:
+      context: .
+      dockerfile: nginx.Dockerfile
+      args:
+        - "NGINX_CONF=./nginx.conf"
+    ports:
+      - "127.0.0.1:8127:80"
+    depends_on:
+      - "fastapi-tcc"
+      - "hasura-tcc"
+    networks:
+      - default
+      - tcc-storage
+    restart: unless-stopped
+
+networks:
+  tcc-storage:
+    external: true
+    name: tcc-storage

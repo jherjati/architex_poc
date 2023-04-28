@@ -1,0 +1,145 @@
+version: "3"
+
+services:
+  postgis:
+    build:
+      context: postgis
+    # ports:
+    #   - "5432:5432"
+    volumes:
+      - "./postgis/data:/var/lib/postgresql/data"
+      - "./postgis/migrationdump:/migrationdump"
+    environment:
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB=${POSTGRES_DB:-disparbud_portalevent}
+      - PORTALEVENT_URL
+      - BUCKET_NAME=${STORAGE_BUCKET_NAME:-disparbud-portalevent-storage}
+    networks:
+      - default
+      - disparbud_db
+    restart: always
+
+  minio:
+    build: 
+      context: minio
+    # ports:
+    #   - "9000:9000"
+    #   - "9001:9001"
+    volumes:
+      - "./minio/data:/data"
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${STORAGE_ACCESS_KEY_ID}
+      - MINIO_ROOT_PASSWORD=${STORAGE_SECRET_ACCESS_KEY}
+    restart: always
+
+  minioclient:
+    build: 
+      context: minioclient
+    volumes:
+      - "./minioclient/migrationfiles:/migrationfiles:ro"
+    depends_on:
+      - minio
+    environment:
+      - MINIO_ROOT_USER=${STORAGE_ACCESS_KEY_ID}
+      - MINIO_ROOT_PASSWORD=${STORAGE_SECRET_ACCESS_KEY}
+    restart: on-failure
+
+  hasura:
+    build:
+      context: hasura
+    environment:
+      - POSTGRES_HOST=${POSTGRES_HOST:-postgis}
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB:-disparbud_portalevent}
+      - HASURA_GRAPHQL_ENABLE_CONSOLE=true
+      - HASURA_GRAPHQL_ADMIN_SECRET
+      - HASURA_GRAPHQL_UNAUTHORIZED_ROLE=anon
+      - HASURA_GRAPHQL_ENABLE_TELEMETRY=false
+    depends_on:
+      - postgis
+      - fastify
+    volumes:
+      - "./keys:/keys:ro"
+    restart: always
+
+  fastify:
+    build:
+      context: server
+    volumes:
+      - "./keys:/keys:ro"
+    environment:
+      - STORAGE_ENDPOINT=${STORAGE_ENDPOINT:-minio}
+      - STORAGE_PORT=${STORAGE_PORT:-9000}
+      - STORAGE_ACCESS_KEY_ID
+      - STORAGE_SECRET_ACCESS_KEY
+      - STORAGE_USE_SSL
+      - STORAGE_REGION
+      - BUCKET_NAME=${STORAGE_BUCKET_NAME:-disparbud-portalevent-storage}
+      - MAILER_USER
+      - MAILER_APP_PASSWORD
+      - GOOGLE_SIGNIN_OAUTH_CLIENT_ID
+      - ALLOWED_CORS_ORIGIN
+      - POSTGRES_HOST=${POSTGRES_HOST:-postgis}
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB:-disparbud_portalevent}
+      - PORTALEVENT_URL
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_KEY
+    depends_on:
+      - minio
+      - postgis
+    restart: always
+
+  fastify-nextjs:
+    build:
+      context: client
+      args:
+        - PORTALEVENT_URL=${PORTALEVENT_URL}
+        - NEXT_PUBLIC_GOOGLE_SIGNIN_OAUTH_CLIENT_ID=${GOOGLE_SIGNIN_OAUTH_CLIENT_ID}
+        - NEXT_PUBLIC_GA_MEASUREMENT_ID=${NEXT_PUBLIC_GA_MEASUREMENT_ID}
+    environment:
+      - PORTALEVENT_URL
+      - NEXT_PUBLIC_GOOGLE_SIGNIN_OAUTH_CLIENT_ID=${GOOGLE_SIGNIN_OAUTH_CLIENT_ID}
+      - NEXT_PUBLIC_GA_MEASUREMENT_ID
+    depends_on:
+      - hasura
+      - fastify
+    restart: always
+
+  nginx-portalevent:
+    build:
+      context: nginx
+    ports:
+      - "127.0.0.1:8126:80"
+    depends_on:
+      - fastify
+      - hasura
+      - fastify-nextjs
+      - minio
+    restart: always
+
+  dbdumper:
+    build:
+      context: dbdumper
+    volumes:
+      - "./dbdumper/snapshots:/home/snapshots"
+    environment:
+      - PGHOST=${POSTGRES_HOST:-postgis}
+      - PGUSER=${POSTGRES_USER}
+      - PGPASSWORD=${POSTGRES_PASSWORD}
+      - PGPORT=${POSTGRES_PORT:-5432}
+      - PGDATABASE=${POSTGRES_DB:-disparbud_portalevent}
+    depends_on:
+      - postgis
+    restart: always
+
+networks:
+  disparbud_db:
+    external: true
+    name: disparbud_db
