@@ -180,7 +180,7 @@ def start_drawing(filenames):
     location_blocks = get_location_blocks(crossplane.parse(
         f'{os.getcwd()}/{repo_path}/{nginx_files[0]}'))
 
-    with Diagram(f'{sys.argv[1]} Architectural Diagram', filename=f'{sys.argv[1]}_architecture',  graph_attr=graph_attr, show=False):
+    with Diagram(f'{sys.argv[1]} Architectural Diagram', filename=f'output/{sys.argv[1]}_architecture',  graph_attr=graph_attr, show=False):
         containers, databases = {}, {}
 
         for docker_compose in docker_composes:
