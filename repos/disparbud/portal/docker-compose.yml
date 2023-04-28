@@ -116,7 +116,7 @@ services:
     build:
       context: nginx
     ports:
-      - "127.0.0.1:8126:80"
+      - "8126:80"
     depends_on:
       - fastify
       - hasura

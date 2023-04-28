@@ -14,11 +14,11 @@ def container_name2service_name(container_name):
             return item['service_name']
 
 
-def get_compose_files(dir_path):
+def get_filepaths(dir_path):
     res = []
-    for path in os.listdir(dir_path):
-        if os.path.isfile(os.path.join(dir_path, path)):
-            res.append(path)
+    for (dir_path, dir_names, file_names) in os.walk(dir_path):
+        for file_name in file_names:
+            res.append(f'{dir_path}/{file_name}')
     return res
 
 
@@ -27,10 +27,9 @@ def service_to_container(name, service):
         'networks') if x != 'default']) if service.get(
         'networks') != None else None
 
-    name = service.get(
-        "container_name") if "container_name" in service else name
+    name = f'{service.get("container_name")} ({name})' if "container_name" in service else name
     if withNetworks:
-        with SystemBoundary(f'{withNetworks} custom network'):
+        with SystemBoundary(f'Custom network(s) : {withNetworks}'):
             return Container(
                 name=name,
                 technology=service.get(
@@ -71,7 +70,7 @@ def get_location_blocks(nginx_conf):
     return location_blocks
 
 
-def nginx_detection(docker_compose):
+def initial_detection(docker_compose):
     for name, service in docker_compose["services"].items():
         global names
         names.append({'service_name': name, 'container_name':  service.get(
@@ -95,7 +94,8 @@ def populate_databases(docker_compose, databases):
 
 
 def populate_containers(docker_compose, containers, compose_file):
-    composeNetwork = SystemBoundary(f'{compose_file} default network')
+    composeNetwork = SystemBoundary(
+        f'Default network : {compose_file.replace(repo_path,"")}')
     with composeNetwork:
         for name, service in docker_compose["services"].items():
             containers[name] = service_to_container(name, service)
@@ -130,7 +130,7 @@ def get_nginx_relationships(location_blocks, containers):
                           if block["directive"] == "fastcgi_pass"]
         if root_blocks:
             web = Container(
-                name="web",
+                name="web client",
                 technology="static web",
                 description=f'{root_blocks[0]} nginx service directory',
             )
@@ -148,12 +148,6 @@ def get_nginx_relationships(location_blocks, containers):
                 f'{location_block.get("args")[0]} fastcgi pass') >> containers[destination_service] if containers.get(destination_service) else containers[container_name2service_name(destination_service)]
 
 
-def compose_drawing(docker_compose, databases, containers, compose_file):
-    populate_databases(docker_compose, databases)
-    populate_containers(docker_compose, containers, compose_file)
-    get_compose_relationships(docker_compose, containers, databases)
-
-
 graph_attr = {
     "splines": "spline",
 }
@@ -163,33 +157,34 @@ user = None
 names = []
 
 
-def start_drawing(filenames):
+def start_drawing(filepaths):
     docker_composes = []
     compose_files = []
-    nginx_files = []
+    nginx_filepath = ''
 
-    for filename in filenames:
-        if ('.yml' in filename or '.yaml' in filename):
-            file = open(repo_path+f'/{filename}')
+    for filepath in filepaths:
+        if ('.yml' in filepath or '.yaml' in filepath):
+            file = open(filepath)
             docker_composes.append(yaml.load(file, Loader=SafeLoader))
-            compose_files.append(filename)
+            compose_files.append(filepath)
             file.close()
-        if ('.conf' in filename):
-            nginx_files.append(filename)
-
-    location_blocks = get_location_blocks(crossplane.parse(
-        f'{os.getcwd()}/{repo_path}/{nginx_files[0]}'))
+        if ('.conf' in filepath):
+            nginx_filepath = filepath
 
     with Diagram(f'{sys.argv[1]} Architectural Diagram', filename=f'output/{sys.argv[1]}_architecture',  graph_attr=graph_attr, show=False):
         containers, databases = {}, {}
 
         for docker_compose in docker_composes:
-            nginx_detection(docker_compose)
+            initial_detection(docker_compose)
         for index, docker_compose in enumerate(docker_composes):
-            compose_drawing(docker_compose, databases,
-                            containers, compose_files[index])
+            populate_databases(docker_compose, databases)
+            populate_containers(docker_compose, containers,
+                                compose_files[index])
+            get_compose_relationships(docker_compose, containers, databases)
+
         get_nginx_relationships(
-            location_blocks, containers)
+            get_location_blocks(crossplane.parse(
+                f'{os.getcwd()}/{nginx_filepath}')), containers)
 
 
-start_drawing(get_compose_files(repo_path))
+start_drawing(get_filepaths(repo_path))
