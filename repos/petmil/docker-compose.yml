@@ -1,0 +1,94 @@
+version: "3.4"
+
+services:
+  website:
+    build:
+      context: website
+      dockerfile: Dockerfile
+      network: host
+    environment:
+      - DATABASE_URL
+      - TOKEN_KEY
+    networks:
+      - petmil_storage
+      - default
+
+  cache:
+    container_name: petmil_cache
+    image: redis:6
+
+  directus:
+    container_name: petmil_directus
+    build:
+      context: directus
+    depends_on:
+      - cache
+    ports:
+      - 8055:8055
+    volumes:
+      - ./extensions:/directus-extension
+    environment:
+      - PUBLIC_URL
+      - KEY
+      - SECRET
+      - DB_CLIENT
+      - DB_HOST
+      - DB_PORT
+      - DB_DATABASE
+      - DB_USER
+      - DB_PASSWORD
+      - ADMIN_EMAIL
+      - ADMIN_PASSWORD
+      - STORAGE_LOCATIONS
+      - STORAGE_AWS_DRIVER
+      - STORAGE_AWS_ROOT
+      - STORAGE_AWS_KEY
+      - STORAGE_AWS_SECRET
+      - STORAGE_AWS_BUCKET
+      - STORAGE_AWS_ENDPOINT
+      - STORAGE_AWS_S3_FORCE_PATH_STYLE
+      - LOG_LEVEL
+      - LOG_STYLE
+      - CACHE_ENABLED
+      - CACHE_AUTO_PURGE
+      - CACHE_STORE
+      - CACHE_REDIS
+      - REFRESH_TOKEN_COOKIE_DOMAIN
+      - REFRESH_TOKEN_COOKIE_SECURE
+      - REFRESH_TOKEN_COOKIE_SAME_SITE
+      - SESSION_STORE
+      - SESSION_REDIS
+      - RATE_LIMITER_ENABLED
+      - RATE_LIMITER_STORE
+      - RATE_LIMITER_REDIS
+      - PASSWORD_RESET_URL_ALLOW_LIST
+      - EMAIL_FROM
+      - EMAIL_TRANSPORT
+      - EMAIL_SMTP_HOST
+      - EMAIL_SMTP_PORT
+      - EMAIL_SMTP_USER
+      - EMAIL_SMTP_PASSWORD
+      - EMAIL_SMTP_SECURE
+      - EXTENSIONS_AUTO_RELOAD
+    networks:
+      - petmil_storage
+      - default
+
+  nginx:
+    container_name: petmil_nginx
+    build:
+      context: .
+      dockerfile: nginx.Dockerfile
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - "directus"
+      - "website"
+    volumes:
+      - ./nginx-prod.conf:/etc/nginx/nginx.conf
+      - ./cert:/etc/cert
+
+networks:
+  petmil_storage:
+    name: petmil_storage

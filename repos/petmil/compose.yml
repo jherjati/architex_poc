@@ -1,0 +1,47 @@
+version: "3"
+services:
+  postgis:
+    build:
+      context: postgis
+    volumes:
+      - ./postgis/data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB
+    networks:
+      - petmil_storage
+    restart: unless-stopped
+    ports:
+      - 5432:5432
+
+  minio:
+    build:
+      context: minio
+    volumes:
+      - ./minio/data:/data
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${S3_ACCESS_KEY}
+      - MINIO_ROOT_PASSWORD=${S3_SECRET_KEY}
+    networks:
+      - petmil_storage
+    restart: unless-stopped
+    ports:
+      - 9000:9000
+      - 9001:9001
+
+  minioclient:
+    build:
+      context: minioclient
+    depends_on:
+      - minio
+    environment:
+      - S3_ACCESS_KEY
+      - S3_SECRET_KEY
+      - S3_BUCKET_NAME
+    restart: on-failure
+
+networks:
+  petmil_storage:
+    name: petmil_storage

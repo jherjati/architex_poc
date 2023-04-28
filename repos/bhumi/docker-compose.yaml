@@ -1,0 +1,51 @@
+version: '3'
+services:
+  nginx:
+    container_name: 'bhumi2022_main'
+    image: bhumi2022-main:1.0
+    # depends_on:
+    #   - api
+    build:
+      context: './vitejs'
+      dockerfile: ../nginx/Dockerfile
+    environment:
+      - VITE_MAPTILER_KEY
+      - VITE_GEONODE_URL
+      - VITE_AUTH_TOKEN
+      - VITE_ION_TOKEN
+    ports:
+      - '80:80'
+    volumes:
+      - './nginx/nginx.conf:/etc/nginx/nginx.conf:ro'
+      # - 'ewallet:/usr/share/nginx/ewallet'
+    restart: unless-stopped
+  api:
+    container_name: 'bhumi2022_api'
+    image: bhumi2022-api:1.0
+    build:
+      dockerfile: Dockerfile
+      context: '../backend_bhumi2022'
+    volumes:
+      - /app/node_modules
+      - ../backend_bhumi2022:/app
+    environment:
+      - DB_USER
+      - DB_HOST
+      - DB_DATABASE
+      - DB_PASSWORD
+      - DB_PORT
+      - GOOGLE_TOKEN
+      - API_TOKEN
+      - API_URL
+      - API_PORT
+      - WMS_URL
+  ewallet:
+    container_name: 'ewallet_fe'
+    image: ewallet-fe:1.0
+    build:
+      dockerfile: Dockerfile
+      context: ../ewallet-bhumi/bidangpersil
+    volumes:
+      - ewallet:/app/dist
+volumes:
+  ewallet:
