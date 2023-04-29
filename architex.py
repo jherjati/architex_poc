@@ -88,16 +88,17 @@ def populate_databases(docker_compose, databases):
     if docker_compose.get("volumes"):
         for name, volume in docker_compose["volumes"].items():
             desc_strings = []
-            for key, value in volume.items():
-                desc_strings.append(f'{value} {key}')
+            if volume != None:
+                for key, value in volume.items():
+                    desc_strings.append(f'{value} {key}')
             databases[name] = volume_to_database(
-                name, 'copy', f'named volume with {", ".join(desc_strings)}')
+                name, 'copy', f'named volume with {", ".join(desc_strings) if len(desc_strings) else "no description"}')
 
     for name, service in docker_compose["services"].items():
         if "volumes" in service:
             for volume_string in service["volumes"]:
                 volume_name, _, access_mode = (volume_string.split(
-                    ":") + [None]*3)[:3]
+                    ":") + [None]*2)[:3]
                 if databases.get(volume_name) == None:
                     databases[volume_name] = volume_to_database(
                         volume_name, access_mode if access_mode != None else 'rw', 'bind-mounted file system')
@@ -119,9 +120,9 @@ def get_compose_relationships(docker_compose, containers, databases):
         if "volumes" in service:
             for volume_string in service["volumes"]:
                 volume_name, container_path = (volume_string.split(
-                    ":"))[:2]
+                    ":") + [None]*1)[:2]
                 containers[name] >> Relationship(
-                    f'mount {container_path}') >> databases[volume_name]
+                    f'mount {container_path if container_path else volume_name}') >> databases[volume_name]
         if "ports" in service:
             for port_string in service["ports"]:
                 host, container = port_string.split(
