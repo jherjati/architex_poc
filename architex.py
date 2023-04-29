@@ -7,16 +7,24 @@ from yaml.loader import SafeLoader
 from diagrams import Diagram
 from diagrams.c4 import Person, Container, Database, SystemBoundary, Relationship
 
+graph_attr = {
+    "splines": "spline",
+}
+repo_path = f'repos/{sys.argv[1]}'
+nginx_service_name = ""
+global_user = None
+global_names = []
+
 
 def container_name2service_name(container_name):
-    for item in names:
+    for item in global_names:
         if item['container_name'] == container_name:
             return item['service_name']
 
 
-def get_filepaths(dir_path):
+def get_filepaths(repo_path):
     res = []
-    for (dir_path, dir_names, file_names) in os.walk(dir_path):
+    for (dir_path, dir_names, file_names) in os.walk(repo_path):
         for file_name in file_names:
             res.append(f'{dir_path}/{file_name}')
     return res
@@ -72,16 +80,12 @@ def get_location_blocks(nginx_conf):
 
 def initial_detection(docker_compose):
     for name, service in docker_compose["services"].items():
-        global names
-        names.append({'service_name': name, 'container_name':  service.get(
+        global global_names
+        global_names.append({'service_name': name, 'container_name':  service.get(
             "container_name") if "container_name" in service else name})
         if "nginx" in name or (service.get("image") is not None and "nginx" in service.get("image")):
             global nginx_service_name
             nginx_service_name = name
-            global user
-            user = Person(
-                name="User", description="General User"
-            )
 
 
 def populate_databases(docker_compose, databases):
@@ -127,7 +131,7 @@ def get_compose_relationships(docker_compose, containers, databases):
             for port_string in service["ports"]:
                 host, container = port_string.split(
                     ":")
-                user >> Relationship(
+                global_user >> Relationship(
                     f'access port {host}, forwarded to {container}') >> containers[name]
 
 
@@ -194,15 +198,6 @@ def get_nginx_relationships(location_blocks, containers):
                 f'{location_block.get("args")[0]} fastcgi pass') >> target_container
 
 
-graph_attr = {
-    "splines": "spline",
-}
-repo_path = f'repos/{sys.argv[1]}'
-nginx_service_name = ""
-user = None
-names = []
-
-
 def start_drawing(filepaths):
     docker_composes = []
     compose_files = []
@@ -219,6 +214,8 @@ def start_drawing(filepaths):
 
     with Diagram(f'{sys.argv[1]} Architectural Diagram', filename=f'output/{sys.argv[1]}_architecture',  graph_attr=graph_attr, show=False):
         containers, databases = {}, {}
+        global global_user
+        global_user = Person(name="User", description="General User")
 
         for docker_compose in docker_composes:
             initial_detection(docker_compose)
