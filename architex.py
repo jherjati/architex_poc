@@ -45,10 +45,10 @@ def service_to_container(name, service):
         )
 
 
-def volume_to_database(volume, access_mode):
+def volume_to_database(name, access_mode, technology):
     return Database(
-        name=volume,
-        technology="file system",
+        name=name,
+        technology=technology,
         description=f'access mode : {access_mode}',
     )
 
@@ -85,12 +85,22 @@ def initial_detection(docker_compose):
 
 
 def populate_databases(docker_compose, databases):
+    if docker_compose.get("volumes"):
+        for name, volume in docker_compose["volumes"].items():
+            desc_strings = []
+            for key, value in volume.items():
+                desc_strings.append(f'{value} {key}')
+            databases[name] = volume_to_database(
+                name, 'copy', f'named volume with {", ".join(desc_strings)}')
+
     for name, service in docker_compose["services"].items():
         if "volumes" in service:
             for volume_string in service["volumes"]:
-                volume, container_path, access_mode = (volume_string.split(
+                volume_name, _, access_mode = (volume_string.split(
                     ":") + [None]*3)[:3]
-                databases[volume] = volume_to_database(volume, access_mode)
+                if databases.get(volume_name) == None:
+                    databases[volume_name] = volume_to_database(
+                        volume_name, access_mode if access_mode != None else 'rw', 'bind-mounted file system')
 
 
 def populate_containers(docker_compose, containers, compose_file):
@@ -108,10 +118,10 @@ def get_compose_relationships(docker_compose, containers, databases):
                 lambda destination_service: containers[destination_service] if containers.get(destination_service) else containers[container_name2service_name(destination_service)], service.get("depends_on")))
         if "volumes" in service:
             for volume_string in service["volumes"]:
-                volume, container_path = (volume_string.split(
+                volume_name, container_path = (volume_string.split(
                     ":"))[:2]
                 containers[name] >> Relationship(
-                    f'bind mount {container_path}') >> databases[volume]
+                    f'mount {container_path}') >> databases[volume_name]
         if "ports" in service:
             for port_string in service["ports"]:
                 host, container = port_string.split(
