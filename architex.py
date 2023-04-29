@@ -133,12 +133,17 @@ def get_compose_relationships(docker_compose, containers, databases):
 
 def get_nginx_relationships(location_blocks, containers):
     for location_block in location_blocks:
-        root_blocks = [block.get("args")[0] for block in location_block['block']
-                       if block["directive"] == "root"]
-        proxy_blocks = [block.get("args")[0] for block in location_block['block']
-                        if block["directive"] == "proxy_pass"]
-        fastcgi_blocks = [block.get("args")[0] for block in location_block['block']
-                          if block["directive"] == "fastcgi_pass"]
+        root_blocks, proxy_blocks, fastcgi_blocks, version = [], [], [], None
+        for block in location_block['block']:
+            if block["directive"] == "root":
+                root_blocks.append(block.get("args")[0])
+            if block["directive"] == "proxy_pass":
+                proxy_blocks.append(block.get("args")[0])
+            if block["directive"] == "fastcgi_pass":
+                fastcgi_blocks.append(block.get("args")[0])
+            if block["directive"] == "proxy_http_version":
+                version = block.get("args")[0]
+
         if root_blocks:
             web = Container(
                 name="web client",
@@ -148,15 +153,45 @@ def get_nginx_relationships(location_blocks, containers):
             containers[nginx_service_name] >> Relationship(
                 f'{location_block.get("args")[0]} simple redirection') >> web
         elif proxy_blocks:
-            destination_service = urllib.parse.urlparse(
+            target_container_name = urllib.parse.urlparse(
                 proxy_blocks[0]).netloc.split(":")[0]
+            target_container = None
+            if containers.get(
+                    target_container_name):
+                target_container = containers[target_container_name]
+            elif containers.get(container_name2service_name(target_container_name)):
+                target_container = containers[container_name2service_name(
+                    target_container_name)]
+            else:
+                target_container = Container(
+                    name=target_container_name,
+                    technology=f'proxy_http_version {version}',
+                    description=proxy_blocks[0],
+                )
+                containers[target_container_name] = target_container
+
             containers[nginx_service_name] >> Relationship(
-                f'{location_block.get("args")[0]} proxy pass') >> containers[destination_service] if containers.get(destination_service) else containers[container_name2service_name(destination_service)]
+                f'{location_block.get("args")[0]} proxy pass') >> target_container
         elif fastcgi_blocks:
-            destination_service = urllib.parse.urlparse(
+            target_container_name = urllib.parse.urlparse(
                 fastcgi_blocks[0]).netloc.split(":")[0]
+            target_container = None
+            if containers.get(
+                    target_container_name):
+                target_container = containers[target_container_name]
+            elif containers.get(container_name2service_name(target_container_name)):
+                target_container = containers[container_name2service_name(
+                    target_container_name)]
+            else:
+                target_container = Container(
+                    name=target_container_name,
+                    technology=target_container_name,
+                    description=fastcgi_blocks[0],
+                )
+                containers[target_container_name] = target_container
+
             containers[nginx_service_name] >> Relationship(
-                f'{location_block.get("args")[0]} fastcgi pass') >> containers[destination_service] if containers.get(destination_service) else containers[container_name2service_name(destination_service)]
+                f'{location_block.get("args")[0]} fastcgi pass') >> target_container
 
 
 graph_attr = {
