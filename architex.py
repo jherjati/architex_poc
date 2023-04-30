@@ -11,8 +11,6 @@ graph_attr = {
     "splines": "spline",
 }
 repo_path = f'repos/{sys.argv[1]}'
-nginx_service_name = ""
-global_user = None
 global_names = []
 
 
@@ -78,16 +76,6 @@ def get_location_blocks(nginx_conf):
     return location_blocks
 
 
-def initial_detection(docker_compose):
-    for name, service in docker_compose["services"].items():
-        global global_names
-        global_names.append({'service_name': name, 'container_name':  service.get(
-            "container_name") if "container_name" in service else name})
-        if "nginx" in name or (service.get("image") is not None and "nginx" in service.get("image")):
-            global nginx_service_name
-            nginx_service_name = name
-
-
 def populate_databases(docker_compose, databases):
     if docker_compose.get("volumes"):
         for name, volume in docker_compose["volumes"].items():
@@ -115,8 +103,19 @@ def populate_containers(docker_compose, containers, compose_file):
         for name, service in docker_compose["services"].items():
             containers[name] = service_to_container(name, service)
 
+            global global_names
+            if "nginx" in name or (service.get("image") is not None and "nginx" in service.get("image")) or (service.get("volumes") is not None and len([volume_string for volume_string in service['volumes'] if 'nginx' in volume_string])):
+                path_strings = compose_file.split('/')[:-1]
+                path_strings.append(f'{service["build"]["context"]}/nginx.conf' if service.get('build') else [volume_string for volume_string in service['volumes']
+                                                                                                              if 'nginx' in volume_string and '.conf' in volume_string][0].split(':')[0])
+                global_names.append({'service_name': name, 'container_name':  service.get(
+                    "container_name") if "container_name" in service else name, 'nginx_path': '/'.join(path_strings)})
+            else:
+                global_names.append({'service_name': name, 'container_name':  service.get(
+                    "container_name") if "container_name" in service else name})
 
-def get_compose_relationships(docker_compose, containers, databases):
+
+def get_compose_relationships(docker_compose, containers, databases, user):
     for name, service in docker_compose["services"].items():
         if "depends_on" in service:
             containers[name] >> Relationship("depends on") >> list(map(
@@ -131,11 +130,11 @@ def get_compose_relationships(docker_compose, containers, databases):
             for port_string in service["ports"]:
                 host, container = port_string.split(
                     ":")
-                global_user >> Relationship(
+                user >> Relationship(
                     f'access port {host}, forwarded to {container}') >> containers[name]
 
 
-def get_nginx_relationships(location_blocks, containers):
+def get_nginx_relationships(location_blocks, containers, nginx_container_name):
     for location_block in location_blocks:
         root_blocks, proxy_blocks, fastcgi_blocks, version = [], [], [], None
         for block in location_block['block']:
@@ -154,7 +153,7 @@ def get_nginx_relationships(location_blocks, containers):
                 technology="static web",
                 description=f'{root_blocks[0]} nginx service directory',
             )
-            containers[nginx_service_name] >> Relationship(
+            containers[nginx_container_name] >> Relationship(
                 f'{location_block.get("args")[0]} simple redirection') >> web
         elif proxy_blocks:
             target_container_name = urllib.parse.urlparse(
@@ -174,7 +173,7 @@ def get_nginx_relationships(location_blocks, containers):
                 )
                 containers[target_container_name] = target_container
 
-            containers[nginx_service_name] >> Relationship(
+            containers[nginx_container_name] >> Relationship(
                 f'{location_block.get("args")[0]} proxy pass') >> target_container
         elif fastcgi_blocks:
             target_container_name = urllib.parse.urlparse(
@@ -194,14 +193,12 @@ def get_nginx_relationships(location_blocks, containers):
                 )
                 containers[target_container_name] = target_container
 
-            containers[nginx_service_name] >> Relationship(
+            containers[nginx_container_name] >> Relationship(
                 f'{location_block.get("args")[0]} fastcgi pass') >> target_container
 
 
 def start_drawing(filepaths):
-    docker_composes = []
-    compose_files = []
-    nginx_filepath = ''
+    docker_composes, compose_files = [], []
 
     for filepath in filepaths:
         if ('.yml' in filepath or '.yaml' in filepath):
@@ -209,25 +206,24 @@ def start_drawing(filepaths):
             docker_composes.append(yaml.load(file, Loader=SafeLoader))
             compose_files.append(filepath)
             file.close()
-        if ('.conf' in filepath):
-            nginx_filepath = filepath
 
     with Diagram(f'{sys.argv[1]} Architectural Diagram', filename=f'output/{sys.argv[1]}_architecture',  graph_attr=graph_attr, show=False):
-        containers, databases = {}, {}
-        global global_user
-        global_user = Person(name="User", description="General User")
+        containers, databases, user = {}, {}, Person(
+            name="User", description="General User")
 
-        for docker_compose in docker_composes:
-            initial_detection(docker_compose)
         for index, docker_compose in enumerate(docker_composes):
             populate_databases(docker_compose, databases)
             populate_containers(docker_compose, containers,
                                 compose_files[index])
-            get_compose_relationships(docker_compose, containers, databases)
+            get_compose_relationships(
+                docker_compose, containers, databases, user)
 
-        get_nginx_relationships(
-            get_location_blocks(crossplane.parse(
-                f'{os.getcwd()}/{nginx_filepath}')), containers)
+        for item in global_names:
+            nginx_filepath = item.get('nginx_path')
+            if nginx_filepath:
+                get_nginx_relationships(
+                    get_location_blocks(crossplane.parse(
+                        f'{os.getcwd()}/{nginx_filepath}')), containers, item.get('service_name'))
 
 
 start_drawing(get_filepaths(repo_path))
