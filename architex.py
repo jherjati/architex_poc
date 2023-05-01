@@ -106,8 +106,8 @@ def populate_containers(docker_compose, containers, compose_file):
             global global_names
             if "nginx" in name or (service.get("image") is not None and "nginx" in service.get("image")) or (service.get("volumes") is not None and len([volume_string for volume_string in service['volumes'] if 'nginx' in volume_string])):
                 path_strings = compose_file.split('/')[:-1]
-                path_strings.append(f'{service["build"]["context"]}/nginx.conf' if service.get('build') else [volume_string for volume_string in service['volumes']
-                                                                                                              if 'nginx' in volume_string and '.conf' in volume_string][0].split(':')[0])
+                path_strings.append(f'{service["build"]["context"]}/nginx.conf' if service.get('build') else [
+                                    volume_string for volume_string in service['volumes']if 'nginx' in volume_string and 'conf' in volume_string][0].split(':')[0])
                 global_names.append({'service_name': name, 'container_name':  service.get(
                     "container_name") if "container_name" in service else name, 'nginx_path': '/'.join(path_strings)})
             else:
