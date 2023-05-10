@@ -200,13 +200,15 @@ def start_drawing(repo_path):
     docker_composes, compose_files = [], []
     filepaths = get_filepaths(repo_path)
     for filepath in filepaths:
-        if ('.yml' in filepath or '.yaml' in filepath):
+        if (".yml" in filepath or ".yaml" in filepath):
             file = open(filepath)
-            docker_composes.append(yaml.load(file, Loader=SafeLoader))
-            compose_files.append(filepath)
+            loadedYaml = yaml.load(file, Loader=SafeLoader)
+            if loadedYaml.get("services"):
+                docker_composes.append(loadedYaml)
+                compose_files.append(filepath)
             file.close()
 
-    reponame = repo_path.split('/')[-1] if '/' in repo_path else "current"
+    reponame = repo_path.split("/")[-1] if "/" in repo_path else "current"
     with Diagram(f'{reponame} Architectural Diagram', filename=f'{reponame}_architecture',  graph_attr=graph_attr, show=False):
         containers, databases, user = {}, {}, Person(
             name="User", description="General User")
@@ -219,8 +221,8 @@ def start_drawing(repo_path):
                 docker_compose, containers, databases, user)
 
         for item in global_names:
-            nginx_filepath = item.get('nginx_path')
+            nginx_filepath = item.get("nginx_path")
             if nginx_filepath:
                 get_nginx_relationships(
                     get_location_blocks(crossplane.parse(
-                        f'{os.getcwd()}/{nginx_filepath}')), containers, item.get('service_name'))
+                        f'{os.getcwd()}/{nginx_filepath}')), containers, item.get("service_name"))
