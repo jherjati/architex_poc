@@ -196,19 +196,30 @@ def get_nginx_relationships(location_blocks, containers, nginx_container_name):
                 f'{location_block.get("args")[0]} fastcgi pass') >> target_container
 
 
-def start_drawing(repo_path):
+def start_drawing(repo_path, search):
     docker_composes, compose_files = [], []
-    filepaths = get_filepaths(repo_path)
+    filepaths = get_filepaths(repo_path[0]) if search else repo_path
+    if (search):
+        repo_path = repo_path[0]
+    else:
+        None
     for filepath in filepaths:
         if (".yml" in filepath or ".yaml" in filepath):
             file = open(filepath)
-            loadedYaml = yaml.load(file, Loader=SafeLoader)
+            loadedYaml = {}
+            try:
+                loadedYaml = yaml.load(file, Loader=SafeLoader)
+            except:
+                None
             if loadedYaml.get("services"):
                 docker_composes.append(loadedYaml)
                 compose_files.append(filepath)
             file.close()
 
-    reponame = repo_path.split("/")[-1] if "/" in repo_path else "current"
+    reponame = "current"
+    if (search):
+        reponame = repo_path.split(
+            "/")[-1] if "/" in repo_path else "current"
     with Diagram(f'{reponame} Architectural Diagram', filename=f'{reponame}_architecture',  graph_attr=graph_attr, show=False):
         containers, databases, user = {}, {}, Person(
             name="User", description="General User")
@@ -216,7 +227,7 @@ def start_drawing(repo_path):
         for index, docker_compose in enumerate(docker_composes):
             populate_databases(docker_compose, databases)
             populate_containers(docker_compose, containers,
-                                compose_files[index], repo_path)
+                                compose_files[index], repo_path if search else "")
             get_compose_relationships(
                 docker_compose, containers, databases, user)
 

@@ -1,7 +1,7 @@
 """Top-level package for architex."""
 
 __app_name__ = "architex"
-__version__ = "0.1.4"
+__version__ = "0.1.5"
 
 (
     SUCCESS,

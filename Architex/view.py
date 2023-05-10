@@ -1,7 +1,7 @@
 """This module provides the architex CLI."""
 
 import typer
-from typing import Optional
+from typing import Optional, List
 from architex import (ERRORS, __app_name__, __version__, controller)
 
 app = typer.Typer()
@@ -29,10 +29,11 @@ def main(
 
 @app.command()
 def draw(
-    repo_path: str = typer.Argument(...),
+    repo_path: List[str] = typer.Argument(...),
+    search: bool = typer.Option(False, "--search", "-s"),
 ) -> None:
     """Draw software architecture diagram."""
-    controller.start_drawing(repo_path)
+    controller.start_drawing(repo_path, search)
     typer.secho(
         f"""Your architectural diagram is completed""",
         fg=typer.colors.GREEN,
