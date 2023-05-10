@@ -1,11 +1,10 @@
-"""RP To-Do entry point script."""
-# rptodo/__main__.py
+"""architex entry point script."""
 
-from architex import cli, __app_name__
+from architex import __app_name__, view
 
 
 def main():
-    cli.app(prog_name=__app_name__)
+    view.app(prog_name=__app_name__)
 
 
 if __name__ == "__main__":

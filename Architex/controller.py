@@ -10,7 +10,6 @@ from diagrams.c4 import Person, Container, Database, SystemBoundary, Relationshi
 graph_attr = {
     "splines": "spline",
 }
-repo_path = f'repos/{sys.argv[1]}'
 global_names = []
 
 
@@ -96,7 +95,7 @@ def populate_databases(docker_compose, databases):
                         volume_name, access_mode if access_mode != None else 'rw', 'bind-mounted file system')
 
 
-def populate_containers(docker_compose, containers, compose_file):
+def populate_containers(docker_compose, containers, compose_file, repo_path):
     composeNetwork = SystemBoundary(
         f'Default network : {compose_file.replace(repo_path,"")}')
     with composeNetwork:
@@ -197,9 +196,9 @@ def get_nginx_relationships(location_blocks, containers, nginx_container_name):
                 f'{location_block.get("args")[0]} fastcgi pass') >> target_container
 
 
-def start_drawing(filepaths):
+def start_drawing(repo_path):
     docker_composes, compose_files = [], []
-
+    filepaths = get_filepaths(repo_path)
     for filepath in filepaths:
         if ('.yml' in filepath or '.yaml' in filepath):
             file = open(filepath)
@@ -207,14 +206,15 @@ def start_drawing(filepaths):
             compose_files.append(filepath)
             file.close()
 
-    with Diagram(f'{sys.argv[1]} Architectural Diagram', filename=f'output/{sys.argv[1]}_architecture',  graph_attr=graph_attr, show=False):
+    reponame = repo_path.split('/')[-1]
+    with Diagram(f'{reponame} Architectural Diagram', filename=f'{reponame}_architecture',  graph_attr=graph_attr, show=False):
         containers, databases, user = {}, {}, Person(
             name="User", description="General User")
 
         for index, docker_compose in enumerate(docker_composes):
             populate_databases(docker_compose, databases)
             populate_containers(docker_compose, containers,
-                                compose_files[index])
+                                compose_files[index], repo_path)
             get_compose_relationships(
                 docker_compose, containers, databases, user)
 
@@ -224,6 +224,3 @@ def start_drawing(filepaths):
                 get_nginx_relationships(
                     get_location_blocks(crossplane.parse(
                         f'{os.getcwd()}/{nginx_filepath}')), containers, item.get('service_name'))
-
-
-start_drawing(get_filepaths(repo_path))

@@ -1,7 +1,6 @@
-"""Top-level package for RP To-Do."""
-# rptodo/__init__.py
+"""Top-level package for architex."""
 
-__app_name__ = "rptodo"
+__app_name__ = "architex"
 __version__ = "0.1.0"
 
 (
