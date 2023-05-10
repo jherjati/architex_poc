@@ -206,7 +206,7 @@ def start_drawing(repo_path):
             compose_files.append(filepath)
             file.close()
 
-    reponame = repo_path.split('/')[-1]
+    reponame = repo_path.split('/')[-1] if '/' in repo_path else "current"
     with Diagram(f'{reponame} Architectural Diagram', filename=f'{reponame}_architecture',  graph_attr=graph_attr, show=False):
         containers, databases, user = {}, {}, Person(
             name="User", description="General User")
