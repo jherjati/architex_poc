@@ -1,1 +1,17 @@
-[]
+[
+    {
+        "Description": "Get some milk.",
+        "Priority": 1,
+        "Done": false
+    },
+    {
+        "Description": "Clean the house.",
+        "Priority": 3,
+        "Done": false
+    },
+    {
+        "Description": "Wash the car.",
+        "Priority": 2,
+        "Done": false
+    }
+]
