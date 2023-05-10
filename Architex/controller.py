@@ -209,8 +209,9 @@ def start_drawing(repo_path, search):
             loadedYaml = {}
             try:
                 loadedYaml = yaml.load(file, Loader=SafeLoader)
+                loadedYaml = {} if loadedYaml is None else loadedYaml
             except:
-                None
+                loadedYaml = {}
             if loadedYaml.get("services"):
                 docker_composes.append(loadedYaml)
                 compose_files.append(filepath)
