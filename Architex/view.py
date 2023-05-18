@@ -29,11 +29,11 @@ def main(
 
 @app.command()
 def draw(
-    repo_path: List[str] = typer.Argument(...),
+    list_of_path: List[str] = typer.Argument(...),
     search: bool = typer.Option(False, "--search", "-s"),
 ) -> None:
     """Draw software architecture diagram."""
-    controller.start_drawing(repo_path, search)
+    controller.start_drawing(list_of_path, search)
     typer.secho(
         f"""Your architectural diagram is completed""",
         fg=typer.colors.GREEN,
