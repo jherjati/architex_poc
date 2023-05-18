@@ -6,9 +6,6 @@ from yaml.loader import SafeLoader
 from diagrams import Diagram
 from diagrams.c4 import Person, Container, Database, SystemBoundary, Relationship
 
-graph_attr = {
-    "splines": "spline",
-}
 global_names = []
 
 
@@ -18,12 +15,28 @@ def container_name2service_name(container_name):
             return item['service_name']
 
 
-def get_filepaths(repo_path):
-    res = []
-    for (dir_path, dir_names, file_names) in os.walk(repo_path):
-        for file_name in file_names:
-            res.append(f'{dir_path}/{file_name}')
-    return res
+def populate_composes(docker_composes, compose_files, repo_path, search):
+    def get_filepaths(repo_path):
+        res = []
+        for (dir_path, dir_names, file_names) in os.walk(repo_path):
+            for file_name in file_names:
+                res.append(f'{dir_path}/{file_name}')
+        return res
+
+    filepaths = get_filepaths(repo_path) if search else repo_path
+    for filepath in filepaths:
+        if (".yml" in filepath or ".yaml" in filepath):
+            file = open(filepath)
+            loadedYaml = {}
+            try:
+                loadedYaml = yaml.load(file, Loader=SafeLoader)
+                loadedYaml = {} if loadedYaml is None else loadedYaml
+            except:
+                None
+            if loadedYaml.get("services"):
+                docker_composes.append(loadedYaml)
+                compose_files.append(filepath)
+            file.close()
 
 
 def service_to_container(name, service):
@@ -190,30 +203,14 @@ def get_nginx_relationships(location_blocks, containers, nginx_container_name):
 
 def start_drawing(repo_path, search):
     docker_composes, compose_files = [], []
-    filepaths = get_filepaths(repo_path[0]) if search else repo_path
-    if (search):
-        repo_path = repo_path[0]
-    else:
-        None
-    for filepath in filepaths:
-        if (".yml" in filepath or ".yaml" in filepath):
-            file = open(filepath)
-            loadedYaml = {}
-            try:
-                loadedYaml = yaml.load(file, Loader=SafeLoader)
-                loadedYaml = {} if loadedYaml is None else loadedYaml
-            except:
-                loadedYaml = {}
-            if loadedYaml.get("services"):
-                docker_composes.append(loadedYaml)
-                compose_files.append(filepath)
-            file.close()
+    repo_path = repo_path[0] if search else repo_path
+    reponame = repo_path.split(
+        "/")[-1] if search and "/" in repo_path else "current"
 
-    reponame = "current"
-    if (search):
-        reponame = repo_path.split(
-            "/")[-1] if "/" in repo_path else "current"
-    with Diagram(f'{reponame} Architectural Diagram', filename=f'{reponame}_architecture',  graph_attr=graph_attr, show=False):
+    populate_composes(docker_composes, compose_files, repo_path, search)
+    with Diagram(f'{reponame} Architectural Diagram', filename=f'{reponame}_architecture',  graph_attr={
+        "splines": "spline",
+    }, show=False):
         containers, databases, user = {}, {}, Person(
             name="User", description="General User")
 
