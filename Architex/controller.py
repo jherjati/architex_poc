@@ -118,7 +118,7 @@ def populate_containers(docker_compose, containers, compose_file, repo_path):
             if "nginx" in name or (service.get("image") is not None and "nginx" in service.get("image")) or (service.get("volumes") is not None and len([volume_string for volume_string in service['volumes'] if 'nginx' in volume_string])):
                 path_strings = compose_file.split('/')[:-1]
                 to_be_appended = [
-                    volume_string for volume_string in service['volumes']if 'nginx' in volume_string and 'conf' in volume_string][0].split(':')[0]
+                    volume_string for volume_string in service['volumes'] if 'nginx' in volume_string and 'conf' in volume_string][0].split(':')[0] if service.get("volumes") is not None else None
                 if (to_be_appended is None and service.get('build')):
                     to_be_appended = f'{service["build"]["context"]}/nginx.conf'
                 path_strings.append(to_be_appended)

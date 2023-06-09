@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "architex"
-version = "0.1.7"
+version = "0.1.8"
 description = "Draw your software architecture diagram automagically"
 authors = ["Miko <jherjati@gmail.com>"]
 readme = "README.md"
